@@ -97,11 +97,12 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 5.6 Implement context preparation (combine top-k chunks with source URLs)
   - [x] 5.7 Test retrieval with sample queries and verify source URLs are preserved
 - [ ] 6.0 Integrate Gemini LLM and implement response generation with validation
-  - [x] 6.1 Set up Gemini API key (get from https://aistudio.google.com/app/apikey) - MANUAL STEP
-  - [x] 6.2 Create `backend/llm_service.py` with Gemini client initialization
-  - [x] 6.3 Create comprehensive system prompt with rules (facts only, no investment advice, source citation required, response format, handling unknown info)
-  - [x] 6.4 Implement user prompt template function that formats context chunks and query
-  - [x] 6.5 Implement LLM generation function with Gemini API (temperature=0.1, top_p=0.9, max_output_tokens=150)
+  - [x] 6.1 Set up Gemini API key (get from https://aistudio.google.com/app/apikey) - MANUAL STEP ✅ DONE
+  - [x] 6.2 Create `backend/llm_service.py` with Gemini client initialization ✅ DONE
+  - [x] 6.3 Create comprehensive system prompt with rules (facts only, no investment advice, source citation required, response format, handling unknown info) ✅ DONE
+  - [x] 6.4 Implement user prompt template function that formats context chunks and query ✅ DONE
+  - [x] 6.5 Implement LLM generation function with Gemini API (temperature=0.1, top_p=0.9, max_output_tokens=150) ✅ DONE
+  - [ ] 6.5.1 **BLOCKER**: Fix Gemini safety filter blocking all responses - check Google Cloud Console API settings, verify API key permissions, or try alternative model
   - [ ] 6.6 Create `backend/validators.py` with response validation functions
   - [ ] 6.7 Implement source citation validation (check for "last updated from sources" or source URL)
   - [ ] 6.8 Implement no-advice validation (check for advice keywords, opinion words)
@@ -134,9 +135,80 @@ Update the file after completing each sub-task, not just after completing an ent
   - [ ] 8.7 Test with sample URLs: scrape documents, process, upload to Pinecone, test queries
   - [ ] 8.8 Create comprehensive testing checklist (factual queries, advice-blocking, non-MF queries, jailbreak attempts, source citations, response length)
   - [ ] 8.9 Prepare for deployment: ensure all environment variables are documented, create .streamlit/config.toml if needed
-  - [ ] 8.10 Create GitHub repository and push code
+  - [x] 8.10 Create GitHub repository and push code ✅ DONE - Code pushed to `feature/mutual-fund-chatbot` branch
   - [ ] 8.11 Deploy on Streamlit Cloud: connect GitHub repo, set environment variables, deploy
   - [ ] 8.12 Note: Gemini API is cloud-based, no separate server needed (document API key setup)
   - [ ] 8.13 Test deployed application and verify all features work in production
   - [ ] 8.14 Update README.md with setup instructions, usage guide, and deployment notes
+
+## Current Status & Tomorrow's Priorities
+
+### ✅ Completed Today:
+1. **Migration from Ollama to Google Gemini 2.5 Flash**
+   - Updated `backend/llm_service.py` to use Gemini API
+   - Configured safety settings (BLOCK_NONE for all categories)
+   - Updated `config.py` with Gemini parameters
+   - Updated `requirements.txt` (replaced `ollama` with `google-generativeai`)
+   - Updated `.env.example` with `GEMINI_API_KEY`
+   - Created `INSTRUCTIONS_GEMINI_SETUP.md`
+   - Deleted Ollama-related files (`INSTRUCTIONS_OLLAMA_SETUP.md`, `setup_ollama_model.py`)
+   - Updated task descriptions in `tasks/tasks-mutual-fund-chatbot.md`
+
+2. **Testing Results:**
+   - ✅ API key validation: Working
+   - ✅ Model initialization: Working (model: `models/gemini-2.5-flash`)
+   - ✅ Query processing: Working
+   - ✅ Retrieval system: Working (retrieving chunks correctly)
+   - ✅ Context preparation: Working
+   - ❌ **LLM response generation: BLOCKED** - All responses blocked by Gemini safety filters (finish_reason: 2 = SAFETY)
+
+3. **Git Commit & Push:**
+   - ✅ All changes committed with message: "Migrate from Ollama to Google Gemini 2.5 Flash..."
+   - ✅ Pushed to `feature/mutual-fund-chatbot` branch on GitHub
+
+### 🚨 BLOCKER - Gemini Safety Filter Issue:
+**Problem:** All prompts (including simple ones like "Hello", "What is 2+2?") are being blocked by Gemini's safety filters, even with `BLOCK_NONE` safety settings configured in code.
+
+**Possible Causes:**
+1. Account-level safety restrictions in Google Cloud Console
+2. API key restrictions
+3. Account verification/permission issues
+4. Model-specific safety requirements
+
+**Next Steps (Priority 1):**
+1. Check Google Cloud Console → APIs & Services → Gemini API → Safety Settings
+2. Verify API key doesn't have restrictive safety policies
+3. Try creating a new API key from Google AI Studio
+4. Test with alternative model (`gemini-1.5-pro` or `gemini-2.0-flash-exp`)
+5. Check if account needs verification/approval for Generative AI APIs
+
+### 📋 Tomorrow's Task List (In Order):
+
+1. **Fix Gemini Safety Filter Issue (CRITICAL - Blocking Task 6.0)**
+   - [ ] Research and resolve Gemini safety filter blocking responses
+   - [ ] Verify API key permissions in Google Cloud Console
+   - [ ] Test with alternative models if needed
+   - [ ] Once resolved, retest `backend/llm_service.py` and `test_llm_response.py`
+
+2. **Continue Task 6.0 - Response Validation & Formatting**
+   - [ ] 6.6 Create `backend/validators.py` with response validation functions
+   - [ ] 6.7 Implement source citation validation
+   - [ ] 6.8 Implement no-advice validation
+   - [ ] 6.9 Implement facts-only validation
+   - [ ] 6.10 Implement response fixing function
+   - [ ] 6.11 Implement validated response generation with retry logic
+   - [ ] 6.12 Implement fallback response generation
+   - [ ] 6.13 Create `backend/formatter.py` for response structure formatting
+   - [ ] 6.14 Test LLM integration with sample queries and verify all validations work
+
+3. **Task 7.0 - Build Streamlit Frontend** (Can proceed in parallel if Task 6.0 is partially done)
+   - [ ] 7.1 Create `app.py` as main Streamlit application entry point
+   - [ ] 7.2 Create `frontend/styles.css` with Groww color palette
+   - [ ] Continue with remaining frontend tasks...
+
+### 📝 Notes:
+- All code changes have been committed and pushed to GitHub
+- Branch: `feature/mutual-fund-chatbot`
+- Repository: `harikrshm/Groww_FAQ-Chatbot`
+- The Gemini API integration is complete, but responses are blocked by safety filters - this needs to be resolved before proceeding with validators and frontend development
 
