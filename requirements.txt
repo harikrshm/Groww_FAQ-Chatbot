@@ -1,0 +1,25 @@
+# Core dependencies for Mutual Fund FAQ Chatbot
+
+# Web framework
+streamlit>=1.28.0
+
+# Web scraping
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+lxml>=4.9.0
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# Vector database and embeddings
+sentence-transformers>=2.2.0
+pinecone>=5.0.0
+
+# LLM integration
+google-generativeai>=0.3.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Testing
+pytest>=7.4.0
+
