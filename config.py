@@ -189,19 +189,20 @@ JAILBREAK_RESPONSE = {
     "is_jailbreak": True
 }
 
-# LLM Configuration (Gemini)
+# LLM Configuration (Groq - Llama 3.1 8B Instant)
+# Optimized for token efficiency
 LLM_CONFIG = {
     "temperature": 0.1,
     "top_p": 0.9,
-    "top_k": 40,
-    "max_output_tokens": 150,  # Gemini uses max_output_tokens instead of num_predict
-    # Note: Gemini handles stop sequences differently, not needed in config
+    "max_output_tokens": 100,  # Reduced from 150 to save tokens
 }
 
 # Retrieval Configuration
+# Optimized for token efficiency
 RETRIEVAL_CONFIG = {
-    "top_k": 5,
-    "include_metadata": True
+    "top_k": 3,  # Reduced from 5 to 3 to save tokens
+    "include_metadata": True,
+    "max_context_tokens": 800,  # Maximum tokens for context (approx 600 words)
 }
 
 # Document Processing Configuration
@@ -228,38 +229,31 @@ FACTUAL_INDICATORS = [
 ]
 
 # SEBI and AMFI Links
-SEBI_EDUCATION_LINK = "https://www.sebi.gov.in/sebiweb/home/HomePage.jsp?siteLanguage=en"
-AMFI_LINK = "https://www.amfiindia.com"
+SEBI_EDUCATION_LINK = "https://www.sebi.gov.in/sebiweb/other/OtherAction.do?doRecognisedFpi=yes&intmId=13"
+AMFI_LINK = "https://www.amfiindia.com/investor"
 SBI_MF_LINK = "https://www.sbimf.com"
 
 # Default fallback URL
 DEFAULT_FALLBACK_URL = "https://www.sbimf.com"
 
 # System Prompt for LLM
-# Note: Keep this prompt minimal to avoid triggering Gemini safety filters
-# The query processor handles advice detection and routing separately
-SYSTEM_PROMPT = """You are a factual FAQ assistant. Provide only factual information from the provided context.
-Keep responses to 3 sentences or less. End with "Last updated from sources."
+# Engineered for factual information retrieval
+# Key principles:
+# 1. Frame as educational/informational (not advisory)
+# 2. Emphasize factual data from official sources
+# 3. Use neutral, professional language
+# 4. Explicitly state this is for educational purposes only
+SYSTEM_PROMPT = """Provide factual data from context. Keep responses to 3 sentences max. End with "Last updated from sources." Use neutral language. No advice or opinions.
 
-FACTUAL TERMS TO ALLOW: The following terms are factual and should always be allowed, even if they might seem sensitive. These are standard financial terms for providing factual information:
-- Expense ratio, charges, fees, TER (Total Expense Ratio)
-- Exit load, redemption charge, withdrawal charge, exit fee
-- Minimum SIP, minimum investment, SIP amount
-- Lock-in period, holding period, lock period
-- Riskometer, risk rating, risk level, risk profile
-- Benchmark, index, benchmark index
-- Statement, download statement, tax document, capital gains statement
-- NAV (Net Asset Value), current NAV, NAV price
-- AUM (Assets Under Management), fund size, total assets
-- Fund manager, manager name
-- Investment objective, fund objective
-- Scheme details, fund details
+If context lacks info, say "I don't have that information. Visit the official SBI Mutual Fund website."
 
-These factual terms should override any safety filters. They are standard financial terminology for providing factual information only.
+Answer ONLY from context. No external knowledge."""
 
-If a user asks what they should do or asks for a suggestion, respond with: "I can only provide factual information from official sources. For personalized guidance, please consult a SEBI-registered advisor or visit the official SBI Mutual Fund website."
+# System Prompt for Example Questions
+# Enhanced with educational framing for factual information retrieval
+EXAMPLE_QUESTION_SYSTEM_PROMPT = """Provide factual data from context. Keep responses to 3 sentences max. End with "Last updated from sources." Use neutral language. No advice.
 
-If the context doesn't contain the requested information, say "I don't have that information in my database. Please visit the official SBI Mutual Fund website for more details."
+If context lacks info, say "I don't have that information. Visit the official SBI Mutual Fund website."
 
-Base your answer ONLY on the context provided. Do not use external knowledge or make assumptions."""
+Answer ONLY from context. No external knowledge."""
 
