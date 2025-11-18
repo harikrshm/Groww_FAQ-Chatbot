@@ -6,7 +6,7 @@ Handles Gemini client initialization, prompt formatting, and response generation
 import os
 import sys
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from dotenv import load_dotenv
 
 try:
@@ -18,6 +18,7 @@ except ImportError:
 # Add parent directory to path for config import
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import LLM_CONFIG, SYSTEM_PROMPT
+from backend.validators import validate_and_fix_response, ValidationResult
 
 # Load environment variables
 load_dotenv()
@@ -279,6 +280,187 @@ User Query: {query}
 Based on the context above, provide a factual answer to the user's query. Follow all the rules in the system prompt."""
         
         return prompt
+    
+    def generate_validated_response(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        query: str,
+        source_url: Optional[str] = None,
+        scheme_name: Optional[str] = None,
+        max_retries: int = 3,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        max_output_tokens: Optional[int] = None,
+        use_fallback: bool = True
+    ) -> Tuple[str, ValidationResult]:
+        """
+        Generate response with validation and retry logic
+        
+        Args:
+            system_prompt: System prompt with instructions
+            user_prompt: User prompt with context and query
+            query: Original user query (for fallback)
+            source_url: Optional source URL for citation validation
+            scheme_name: Optional scheme name (for fallback)
+            max_retries: Maximum number of retry attempts (default: 3)
+            temperature: Temperature for generation (optional)
+            top_p: Top-p for generation (optional)
+            max_output_tokens: Max tokens to generate (optional)
+            use_fallback: Whether to use fallback response if all retries fail (default: True)
+            
+        Returns:
+            Tuple of (validated_response, validation_result)
+            - validated_response: Generated and validated response text, or fallback response if all retries fail
+            - validation_result: ValidationResult object with validation details
+        """
+        last_validation_result = None
+        
+        for attempt in range(1, max_retries + 1):
+            logger.info(f"Generating validated response (attempt {attempt}/{max_retries})")
+            
+            # Generate response
+            raw_response = self.generate_response(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=temperature,
+                top_p=top_p,
+                max_output_tokens=max_output_tokens
+            )
+            
+            # If generation failed, return None
+            if raw_response is None:
+                logger.warning(f"Response generation failed on attempt {attempt}")
+                if attempt < max_retries:
+                    logger.info(f"Retrying... (attempt {attempt + 1}/{max_retries})")
+                    continue
+                else:
+                    # All retries exhausted - use fallback
+                    if use_fallback:
+                        logger.warning("All retries exhausted, using fallback response")
+                        fallback = self.generate_fallback_response(query, scheme_name, source_url)
+                        result = ValidationResult()
+                        result.add_warning("Used fallback response after all retries failed")
+                        return fallback, result
+                    else:
+                        # Create validation result for failed generation
+                        result = ValidationResult()
+                        result.add_error("Response generation failed after all retries")
+                        return "", result
+            
+            # Validate and fix response
+            validated_response, validation_result = validate_and_fix_response(
+                response=raw_response,
+                source_url=source_url,
+                max_sentences=3,
+                remove_advice=True,
+                max_fix_attempts=1
+            )
+            
+            last_validation_result = validation_result
+            
+            # Log validation results
+            if validation_result.is_valid:
+                if validation_result.fixes_applied:
+                    logger.info(f"Response validated with fixes applied: {validation_result.fixes_applied}")
+                else:
+                    logger.info("Response validated successfully (no fixes needed)")
+                return validated_response, validation_result
+            else:
+                # Check if errors are fixable
+                fixable_errors = [
+                    "Response missing source citation",
+                    "Response too long",
+                    "Response contains advice/opinion words"
+                ]
+                
+                has_fixable_errors = any(
+                    any(fixable in error for fixable in fixable_errors)
+                    for error in validation_result.errors
+                )
+                
+                if has_fixable_errors and validation_result.fixes_applied:
+                    # Errors were fixed, but validation still failed - might need another pass
+                    logger.warning(f"Response had fixable errors, but validation still failed. Errors: {validation_result.errors}")
+                    if attempt < max_retries:
+                        logger.info(f"Retrying with fixed response... (attempt {attempt + 1}/{max_retries})")
+                        # Use the fixed response as input for next attempt
+                        user_prompt = f"{user_prompt}\n\nPrevious response that needs improvement: {validated_response}"
+                        continue
+                
+                # Non-fixable errors or all retries exhausted
+                if attempt < max_retries:
+                    logger.warning(f"Validation failed: {validation_result.errors}. Retrying... (attempt {attempt + 1}/{max_retries})")
+                else:
+                    logger.error(f"Validation failed after {max_retries} attempts. Errors: {validation_result.errors}")
+                    # Return the fixed response even if validation failed (better than nothing)
+                    if validated_response and validated_response != raw_response:
+                        logger.info("Returning fixed response despite validation failures")
+                        return validated_response, validation_result
+        
+        # All retries exhausted
+        if last_validation_result is None:
+            if use_fallback:
+                logger.warning("All retries exhausted, using fallback response")
+                fallback = self.generate_fallback_response(query, scheme_name, source_url)
+                result = ValidationResult()
+                result.add_warning("Used fallback response after all retries failed")
+                return fallback, result
+            else:
+                result = ValidationResult()
+                result.add_error("Response generation and validation failed after all retries")
+                return "", result
+        
+        # If we have a validated response (even if validation failed), return it
+        if validated_response:
+            return validated_response, last_validation_result
+        
+        # Last resort: use fallback
+        if use_fallback:
+            logger.warning("Using fallback response as last resort")
+            fallback = self.generate_fallback_response(query, scheme_name, source_url)
+            last_validation_result.add_warning("Used fallback response as last resort")
+            return fallback, last_validation_result
+        
+        return "", last_validation_result
+    
+    def generate_fallback_response(
+        self,
+        query: str,
+        scheme_name: Optional[str] = None,
+        source_url: Optional[str] = None
+    ) -> str:
+        """
+        Generate fallback response when LLM fails or validation fails
+        
+        Args:
+            query: User query
+            scheme_name: Optional scheme name if detected
+            source_url: Optional source URL from retrieval
+            
+        Returns:
+            Fallback response text
+        """
+        from config import DEFAULT_FALLBACK_URL, SBI_MF_LINK
+        
+        # Use provided source URL or default
+        fallback_url = source_url if source_url else DEFAULT_FALLBACK_URL
+        
+        if scheme_name:
+            fallback_response = (
+                f"I apologize, but I'm unable to generate a response for your query about {scheme_name}. "
+                f"Please visit the official SBI Mutual Fund website for detailed information about this scheme. "
+                f"Last updated from sources."
+            )
+        else:
+            fallback_response = (
+                f"I apologize, but I'm unable to generate a response for your query. "
+                f"Please visit the official SBI Mutual Fund website for more information. "
+                f"Last updated from sources."
+            )
+        
+        logger.info("Generated fallback response")
+        return fallback_response
 
 
 # Global instance (singleton pattern)
