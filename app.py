@@ -60,6 +60,34 @@ def get_user_input():
     # Check if example question was clicked
     example_question = get_example_question()
     if example_question:
+        # Check if we have a pre-computed answer for this example question
+        if 'example_question_answer' in st.session_state:
+            answer_data = st.session_state.example_question_answer
+            # Add the answer directly to chat history
+            if 'chat_history' not in st.session_state:
+                st.session_state.chat_history = []
+            
+            # Add user message
+            st.session_state.chat_history.append({
+                'role': 'user',
+                'content': example_question,
+                'source_url': None
+            })
+            
+            # Add bot message with pre-computed answer
+            st.session_state.chat_history.append({
+                'role': 'bot',
+                'content': answer_data['answer'],
+                'source_url': answer_data['source_url']
+            })
+            
+            # Clear the example question answer from session state
+            del st.session_state.example_question_answer
+            
+            # Don't process through pipeline, just return None to trigger rerun
+            st.rerun()
+            return None
+        
         return example_question
     
     # Get input from chat UI
