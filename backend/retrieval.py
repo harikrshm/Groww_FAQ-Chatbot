@@ -220,13 +220,14 @@ class RetrievalSystem:
         logger.info(f"Re-ranked {len(reranked_chunks)} chunks")
         return reranked_chunks
     
-    def prepare_context(self, chunks: List[Dict], max_chunks: int = 5) -> Dict:
+    def prepare_context(self, chunks: List[Dict], max_chunks: int = 3, max_context_tokens: int = 800) -> Dict:
         """
-        Prepare context from retrieved chunks for LLM
+        Prepare context from retrieved chunks for LLM (optimized for token efficiency)
         
         Args:
             chunks: List of retrieved chunks
-            max_chunks: Maximum number of chunks to include
+            max_chunks: Maximum number of chunks to include (default: 3)
+            max_context_tokens: Maximum tokens for context (approx 4 chars per token, default: 800)
             
         Returns:
             Dictionary with combined context and source URLs
@@ -234,17 +235,33 @@ class RetrievalSystem:
         # Limit to top chunks
         top_chunks = chunks[:max_chunks]
         
-        # Combine chunk texts
+        # Combine chunk texts with truncation
         context_parts = []
         source_urls = []
+        current_length = 0
+        max_length = max_context_tokens * 4  # Approx 4 chars per token
         
         for i, chunk in enumerate(top_chunks, 1):
             chunk_text = chunk.get('text', '').strip()
             source_url = chunk.get('source_url', '')
             
             if chunk_text:
-                # Add chunk with source reference
-                context_parts.append(f"[Chunk {i}]\n{chunk_text}")
+                # Estimate chunk length (including formatting)
+                chunk_with_format = f"[Chunk {i}]\n{chunk_text}"
+                chunk_length = len(chunk_with_format)
+                
+                # Truncate chunk if needed to stay within token limit
+                if current_length + chunk_length > max_length:
+                    remaining_space = max_length - current_length - len(f"[Chunk {i}]\n") - 50  # Reserve space
+                    if remaining_space > 100:  # Only add if meaningful space remains
+                        truncated_text = chunk_text[:remaining_space] + "..."
+                        chunk_with_format = f"[Chunk {i}]\n{truncated_text}"
+                        context_parts.append(chunk_with_format)
+                        current_length += len(chunk_with_format)
+                    break  # Stop adding chunks if we've reached the limit
+                else:
+                    context_parts.append(chunk_with_format)
+                    current_length += chunk_length
                 
                 # Collect unique source URLs
                 if source_url and source_url not in source_urls:
@@ -257,11 +274,11 @@ class RetrievalSystem:
         context_dict = {
             'context': combined_context,
             'source_urls': source_urls,
-            'num_chunks': len(top_chunks),
-            'chunks': top_chunks  # Include full chunk data for reference
+            'num_chunks': len(context_parts),  # Actual chunks used (may be less if truncated)
+            'chunks': top_chunks[:len(context_parts)]  # Include only used chunks
         }
         
-        logger.info(f"Prepared context from {len(top_chunks)} chunks with {len(source_urls)} unique source URLs")
+        logger.info(f"Prepared context from {len(context_parts)} chunks ({len(combined_context)} chars, ~{len(combined_context)//4} tokens) with {len(source_urls)} unique source URLs")
         return context_dict
 
 

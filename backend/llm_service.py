@@ -1,6 +1,6 @@
 """
-LLM service for response generation using Google Gemini
-Handles Gemini client initialization, prompt formatting, and response generation
+LLM service for response generation using Groq (Llama 3.1 8B Instant)
+Handles Groq client initialization, prompt formatting, and response generation
 """
 
 import os
@@ -10,10 +10,10 @@ from typing import Dict, Optional, Tuple
 from dotenv import load_dotenv
 
 try:
-    import google.generativeai as genai
+    from groq import Groq
 except ImportError:
-    genai = None
-    logging.warning("google-generativeai not installed. Please install: pip install google-generativeai")
+    Groq = None
+    logging.warning("groq package not installed. Please install: pip install groq")
 
 # Add parent directory to path for config import
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -30,101 +30,67 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Gemini configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# Default model: gemini-2.5-flash (stable and fast)
-# User can override via GEMINI_MODEL environment variable
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# Groq configuration
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# Default model: llama-3.1-8b-instant (Llama 3.1 8B via Groq)
+GROQ_MODEL = "llama-3.1-8b-instant"
 
 
 class LLMService:
     """
-    LLM service for generating responses using Google Gemini
+    LLM service for generating responses using Groq (Llama 3.1 8B Instant)
     """
     
     def __init__(self):
-        """Initialize Gemini client"""
-        if genai is None:
-            raise ImportError("google-generativeai package not installed. Install with: pip install google-generativeai")
+        """Initialize Groq client"""
+        if Groq is None:
+            raise ImportError("groq package not installed. Install with: pip install groq")
         
-        self.api_key = GEMINI_API_KEY
-        self.model_name = GEMINI_MODEL
+        self.api_key = GROQ_API_KEY
+        self.model_name = GROQ_MODEL
         
         if not self.api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment variables. Please set it in .env file.")
+            raise ValueError("GROQ_API_KEY not found in environment variables. Please set it in .env file.")
         
-        # Configure Gemini
-        genai.configure(api_key=self.api_key)
-        
-        # Configure safety settings - allow financial/factual content
-        from google.generativeai.types import HarmCategory, HarmBlockThreshold
-        # Use BLOCK_ONLY_HIGH for financial/factual content (less restrictive)
-        self.safety_settings = [
-            {
-                "category": HarmCategory.HARM_CATEGORY_HARASSMENT,
-                "threshold": HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            },
-            {
-                "category": HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                "threshold": HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            },
-            {
-                "category": HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                "threshold": HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            },
-            {
-                "category": HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                "threshold": HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            },
-        ]
-        logger.debug(f"Safety settings configured: {self.safety_settings}")
-        
-        # Ensure model name is in correct format (with or without "models/" prefix)
-        if not self.model_name.startswith("models/"):
-            self.model_name = f"models/{self.model_name}"
-        
-        # Initialize model (safety settings will be passed in generate_content)
+        # Initialize Groq client
         try:
-            self.model = genai.GenerativeModel(model_name=self.model_name)
+            self.client = Groq(api_key=self.api_key)
             logger.info(f"LLM Service initialized with model: {self.model_name}")
         except Exception as e:
-            logger.error(f"Error initializing Gemini model: {e}")
+            logger.error(f"Error initializing Groq client: {e}")
             raise
         
-        # Get generation config from LLM_CONFIG
+        # Get generation config from LLM_CONFIG (optimized for token efficiency)
         self.temperature = LLM_CONFIG.get("temperature", 0.1)
         self.top_p = LLM_CONFIG.get("top_p", 0.9)
-        self.top_k = LLM_CONFIG.get("top_k", 40)
-        self.max_output_tokens = LLM_CONFIG.get("max_output_tokens", 150)
+        self.max_tokens = LLM_CONFIG.get("max_output_tokens", 100)  # Reduced from 150
         
         # Verify API key is valid
-        self._check_gemini_connection()
+        self._check_groq_connection()
     
-    def _check_gemini_connection(self) -> bool:
+    def _check_groq_connection(self) -> bool:
         """
-        Check if Gemini API key is valid
+        Check if Groq API key is valid
         
         Returns:
             True if API key is valid, False otherwise
         """
         try:
-            # Try a simple API call to verify the key (use same safety settings)
-            test_model = genai.GenerativeModel(
-                model_name=self.model_name
+            # Try a simple API call to verify the key
+            test_response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {"role": "user", "content": "test"}
+                ],
+                temperature=0.1,
+                max_tokens=10,
             )
-            test_response = test_model.generate_content(
-                "test",
-                generation_config={
-                    "temperature": 0.1,
-                    "max_output_tokens": 10,
-                }
-            )
-            logger.info("Gemini API key validated successfully")
+            logger.info("Groq API key validated successfully")
             return True
         except Exception as e:
-            logger.error(f"Gemini API key validation failed: {e}")
-            logger.error("Please check your GEMINI_API_KEY in .env file")
-            logger.error("Get API key from: https://aistudio.google.com/app/apikey")
+            logger.error(f"Groq API key validation failed: {e}")
+            logger.error("Please check your GROQ_API_KEY in .env file")
+            logger.error("Get API key from: https://console.groq.com/keys")
             return False
     
     def generate_response(
@@ -136,7 +102,7 @@ class LLMService:
         max_output_tokens: Optional[int] = None
     ) -> Optional[str]:
         """
-        Generate response using Gemini API
+        Generate response using Groq API (Llama 3.1 8B Instant)
         
         Args:
             system_prompt: System prompt with instructions
@@ -149,135 +115,68 @@ class LLMService:
             Generated response text, or None if generation fails
         """
         try:
-            # Gemini doesn't have separate system role, so combine system and user prompts
-            combined_prompt = f"{system_prompt}\n\n{user_prompt}"
-            
-            # Prepare generation config
-            generation_config = {
-                "temperature": temperature if temperature is not None else self.temperature,
-                "top_p": top_p if top_p is not None else self.top_p,
-                "top_k": self.top_k,
-                "max_output_tokens": max_output_tokens if max_output_tokens is not None else self.max_output_tokens,
-            }
-            
-            logger.info(f"Generating response with Gemini model: {self.model_name}")
-            
-            # Generate response with safety settings disabled to allow factual financial content
-            from google.generativeai.types import HarmCategory, HarmBlockThreshold
-            
-            # Safety settings: Use BLOCK_NONE to allow factual financial content
-            # Format as list of dictionaries
-            safety_settings_override = [
-                {
-                    "category": HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    "threshold": HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    "category": HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    "threshold": HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    "category": HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    "threshold": HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    "category": HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    "threshold": HarmBlockThreshold.BLOCK_NONE,
-                },
+            # Groq uses chat completion format with separate system and user messages
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
             ]
             
-            response = self.model.generate_content(
-                contents=combined_prompt,
-                generation_config=generation_config,
-                safety_settings=safety_settings_override
-            )
+            # Prepare generation parameters
+            generation_params = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": temperature if temperature is not None else self.temperature,
+                "top_p": top_p if top_p is not None else self.top_p,
+                "max_tokens": max_output_tokens if max_output_tokens is not None else self.max_tokens,
+            }
             
-            # Extract text from response (try response.text first)
-            try:
-                if response and hasattr(response, 'text') and response.text:
-                    generated_text = response.text.strip()
+            logger.info(f"Generating response with Groq model: {self.model_name}")
+            
+            # Generate response using Groq API
+            response = self.client.chat.completions.create(**generation_params)
+            
+            # Extract text from response
+            if response and response.choices and len(response.choices) > 0:
+                generated_text = response.choices[0].message.content
+                if generated_text:
+                    generated_text = generated_text.strip()
                     logger.info(f"Response generated successfully ({len(generated_text)} characters)")
                     return generated_text
-            except ValueError as text_error:
-                # response.text may throw ValueError if finish_reason indicates blocking
-                logger.debug(f"response.text access failed: {text_error}, checking candidates directly")
-                # Check if it's a safety block
-                if "finish_reason" in str(text_error).lower() and "2" in str(text_error):
-                    logger.warning("Response blocked by safety filters (finish_reason: SAFETY)")
             
-            # If response.text fails, check candidates directly
-            if response and response.candidates:
-                candidate = response.candidates[0]
-                
-                # Try to extract text from candidate content
-                if hasattr(candidate, 'content') and candidate.content and candidate.content.parts:
-                    text = candidate.content.parts[0].text if candidate.content.parts[0].text else None
-                    if text:
-                        logger.info(f"Extracted text from candidate ({len(text)} characters)")
-                        # Check finish_reason for logging purposes
-                        if hasattr(candidate, 'finish_reason') and candidate.finish_reason:
-                            finish_reason = candidate.finish_reason
-                            finish_reason_value = int(finish_reason) if hasattr(finish_reason, '__int__') else finish_reason
-                            if finish_reason_value == 2:  # SAFETY
-                                logger.warning(f"Response had safety finish_reason but text extracted (finish_reason: {finish_reason})")
-                            elif finish_reason_value == 3:  # RECITATION
-                                logger.warning(f"Response had recitation finish_reason but text extracted (finish_reason: {finish_reason})")
-                        return text.strip()
-                
-                # Check finish_reason if no text extracted
-                if hasattr(candidate, 'finish_reason') and candidate.finish_reason:
-                    finish_reason = candidate.finish_reason
-                    finish_reason_value = int(finish_reason) if hasattr(finish_reason, '__int__') else finish_reason
-                    
-                    logger.warning(f"Response blocked (finish_reason: {finish_reason}, value: {finish_reason_value})")
-                    
-                    # finish_reason 2 = SAFETY (content blocked)
-                    # finish_reason 3 = RECITATION (potential copyright issue)
-                    if finish_reason_value == 2:  # SAFETY
-                        logger.warning("Response completely blocked by Gemini safety filters")
-                        logger.warning("This may be due to account-level safety settings that cannot be overridden")
-                        logger.warning("Please check your Google Cloud Console for API safety settings")
-                    elif finish_reason_value == 3:  # RECITATION
-                        logger.warning("Response blocked due to potential recitation (copyright)")
-                    
-                    # Check for safety ratings to get more details
-                    if hasattr(candidate, 'safety_ratings') and candidate.safety_ratings:
-                        logger.warning(f"Safety ratings: {candidate.safety_ratings}")
-                    
-                    return None
-            
-            logger.warning("Gemini returned empty response with no candidates")
+            logger.warning("Groq returned empty response with no content")
             return None
                 
         except Exception as e:
-            logger.error(f"Error calling Gemini API: {e}")
+            logger.error(f"Error calling Groq API: {e}")
             # Check for specific error types
             error_str = str(e).lower()
-            if "api_key" in error_str or "authentication" in error_str:
-                logger.error("Invalid or missing Gemini API key")
-            elif "quota" in error_str or "rate limit" in error_str:
-                logger.error("Gemini API quota exceeded or rate limit reached")
-            elif "safety" in error_str:
-                logger.warning("Response blocked by Gemini safety filters")
+            if "api_key" in error_str or "authentication" in error_str or "unauthorized" in error_str:
+                logger.error("Invalid or missing Groq API key")
+            elif "quota" in error_str or "rate limit" in error_str or "429" in str(e):
+                logger.error("Groq API quota exceeded or rate limit reached")
+            elif "model" in error_str and "not found" in error_str:
+                logger.error(f"Model {self.model_name} not found. Please check the model name.")
             return None
+    
     
     def format_user_prompt(self, context: str, query: str) -> str:
         """
-        Format user prompt with context and query
+        Format user prompt with context and query (optimized for token efficiency)
         
         Args:
             context: Retrieved context chunks
             query: User query
             
         Returns:
-            Formatted user prompt
+            Formatted user prompt (concise)
         """
+        # Concise prompt format to save tokens
         prompt = f"""Context:
 {context}
 
-User Query: {query}
+Query: {query}
 
-Based on the context above, provide a factual answer to the user's query. Follow all the rules in the system prompt."""
+Answer from context only."""
         
         return prompt
     
@@ -331,6 +230,8 @@ Based on the context above, provide a factual answer to the user's query. Follow
             # If generation failed, return None
             if raw_response is None:
                 logger.warning(f"Response generation failed on attempt {attempt}")
+                
+                # Retry with same prompt if not last attempt
                 if attempt < max_retries:
                     logger.info(f"Retrying... (attempt {attempt + 1}/{max_retries})")
                     continue
@@ -482,7 +383,7 @@ def get_llm_service() -> LLMService:
 
 if __name__ == "__main__":
     # Test LLM service
-    print("Testing LLM Service (Gemini):")
+    print("Testing LLM Service (Groq - Llama 3.1 8B Instant):")
     print("="*70)
     
     try:
@@ -511,13 +412,13 @@ if __name__ == "__main__":
             print(f"\nGenerated Response:")
             print(response)
         else:
-            print("\nFailed to generate response. Please check Gemini API key is set correctly.")
+            print("\nFailed to generate response. Please check Groq API key is set correctly.")
     except ImportError as e:
         print(f"\nError: {e}")
-        print("Please install google-generativeai: pip install google-generativeai")
+        print("Please install groq: pip install groq")
     except ValueError as e:
         print(f"\nError: {e}")
-        print("Please set GEMINI_API_KEY in .env file")
-        print("Get API key from: https://aistudio.google.com/app/apikey")
+        print("Please set GROQ_API_KEY in .env file")
+        print("Get API key from: https://console.groq.com/keys")
     except Exception as e:
         print(f"\nError: {e}")
