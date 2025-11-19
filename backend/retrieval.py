@@ -148,11 +148,17 @@ class RetrievalSystem:
                 }
                 retrieved_chunks.append(chunk)
             
-            logger.info(f"Retrieved {len(retrieved_chunks)} chunks for query")
+            logger.info(f"[RETRIEVAL] Retrieved {len(retrieved_chunks)} chunks for query: '{query[:100]}...'")
+            
+            # Log chunk details
+            for i, chunk in enumerate(retrieved_chunks[:3], 1):
+                logger.debug(f"[RETRIEVAL] Chunk {i}: score={chunk.get('score', 0):.4f}, scheme={chunk.get('scheme_name', 'Unknown')}, has_source_url={bool(chunk.get('source_url'))}")
             
             # Re-rank chunks if enabled
             if len(retrieved_chunks) > 0:
+                logger.debug("[RETRIEVAL] Re-ranking chunks...")
                 retrieved_chunks = self._rerank_chunks(retrieved_chunks, query)
+                logger.debug(f"[RETRIEVAL] Re-ranking complete. Top score: {retrieved_chunks[0].get('reranked_score', 0):.4f}")
             
             return retrieved_chunks
             
@@ -243,7 +249,12 @@ class RetrievalSystem:
         
         for i, chunk in enumerate(top_chunks, 1):
             chunk_text = chunk.get('text', '').strip()
-            source_url = chunk.get('source_url', '')
+            source_url = chunk.get('source_url', '').strip() if chunk.get('source_url') else ''
+            
+            # Collect source URL first (even if chunk text is empty or will be truncated)
+            # This ensures we capture source URLs even from chunks that don't make it into context
+            if source_url and source_url not in source_urls:
+                source_urls.append(source_url)
             
             if chunk_text:
                 # Estimate chunk length (including formatting)
@@ -262,10 +273,6 @@ class RetrievalSystem:
                 else:
                     context_parts.append(chunk_with_format)
                     current_length += chunk_length
-                
-                # Collect unique source URLs
-                if source_url and source_url not in source_urls:
-                    source_urls.append(source_url)
         
         # Combine all chunks into context
         combined_context = "\n\n".join(context_parts)
@@ -278,7 +285,11 @@ class RetrievalSystem:
             'chunks': top_chunks[:len(context_parts)]  # Include only used chunks
         }
         
-        logger.info(f"Prepared context from {len(context_parts)} chunks ({len(combined_context)} chars, ~{len(combined_context)//4} tokens) with {len(source_urls)} unique source URLs")
+        logger.info(f"[RETRIEVAL] Prepared context from {len(context_parts)} chunks ({len(combined_context)} chars, ~{len(combined_context)//4} tokens) with {len(source_urls)} unique source URLs")
+        if source_urls:
+            logger.debug(f"[RETRIEVAL] Source URLs: {', '.join(source_urls[:3])}{'...' if len(source_urls) > 3 else ''}")
+        else:
+            logger.warning("[RETRIEVAL] No source URLs found in chunks!")
         return context_dict
 
 

@@ -429,11 +429,11 @@ def validate_and_fix_response(
     # Initial validation
     result = validate_response(response, source_url, max_sentences, strict=False)
     
-    # If valid, return as-is
-    if result.is_valid and not result.warnings:
+    # If valid (no errors), return as-is (warnings are acceptable)
+    if result.is_valid:
         return response, result
     
-    # Apply fixes
+    # Apply fixes only if there are errors (warnings don't require fixes)
     fixed_response = response
     for attempt in range(max_fix_attempts):
         fixed_response, fixes = fix_response(
@@ -447,8 +447,8 @@ def validate_and_fix_response(
         # Re-validate after fixes
         new_result = validate_response(fixed_response, source_url, max_sentences, strict=False)
         
-        # If now valid, return
-        if new_result.is_valid and not new_result.warnings:
+        # If now valid (no errors), return (warnings are acceptable)
+        if new_result.is_valid:
             result = new_result
             break
         

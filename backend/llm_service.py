@@ -216,9 +216,10 @@ Answer from context only."""
         last_validation_result = None
         
         for attempt in range(1, max_retries + 1):
-            logger.info(f"Generating validated response (attempt {attempt}/{max_retries})")
+            logger.info(f"[LLM] Generating validated response (attempt {attempt}/{max_retries}) for query: '{query[:80]}...'")
             
             # Generate response
+            logger.debug(f"[LLM] Calling Groq API with model={self.model_name}, max_tokens={max_output_tokens or self.max_tokens}")
             raw_response = self.generate_response(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -229,16 +230,16 @@ Answer from context only."""
             
             # If generation failed, return None
             if raw_response is None:
-                logger.warning(f"Response generation failed on attempt {attempt}")
+                logger.warning(f"[LLM] Response generation failed on attempt {attempt}")
                 
                 # Retry with same prompt if not last attempt
                 if attempt < max_retries:
-                    logger.info(f"Retrying... (attempt {attempt + 1}/{max_retries})")
+                    logger.info(f"[LLM] Retrying... (attempt {attempt + 1}/{max_retries})")
                     continue
                 else:
                     # All retries exhausted - use fallback
                     if use_fallback:
-                        logger.warning("All retries exhausted, using fallback response")
+                        logger.warning("[LLM] All retries exhausted, using fallback response")
                         fallback = self.generate_fallback_response(query, scheme_name, source_url)
                         result = ValidationResult()
                         result.add_warning("Used fallback response after all retries failed")
@@ -249,7 +250,10 @@ Answer from context only."""
                         result.add_error("Response generation failed after all retries")
                         return "", result
             
+            logger.debug(f"[LLM] Raw response received: {len(raw_response)} chars - '{raw_response[:100]}...'")
+            
             # Validate and fix response
+            logger.debug(f"[LLM] Validating response (source_url={bool(source_url)})...")
             validated_response, validation_result = validate_and_fix_response(
                 response=raw_response,
                 source_url=source_url,
@@ -263,11 +267,14 @@ Answer from context only."""
             # Log validation results
             if validation_result.is_valid:
                 if validation_result.fixes_applied:
-                    logger.info(f"Response validated with fixes applied: {validation_result.fixes_applied}")
+                    logger.info(f"[LLM] Response validated with fixes applied: {validation_result.fixes_applied}")
                 else:
-                    logger.info("Response validated successfully (no fixes needed)")
+                    logger.info("[LLM] Response validated successfully (no fixes needed)")
+                logger.debug(f"[LLM] Final validated response: '{validated_response[:150]}...'")
                 return validated_response, validation_result
             else:
+                logger.warning(f"[LLM] Validation failed. Errors: {validation_result.errors}, Warnings: {validation_result.warnings}")
+                
                 # Check if errors are fixable
                 fixable_errors = [
                     "Response missing source citation",
@@ -282,21 +289,21 @@ Answer from context only."""
                 
                 if has_fixable_errors and validation_result.fixes_applied:
                     # Errors were fixed, but validation still failed - might need another pass
-                    logger.warning(f"Response had fixable errors, but validation still failed. Errors: {validation_result.errors}")
+                    logger.warning(f"[LLM] Response had fixable errors, but validation still failed. Errors: {validation_result.errors}")
                     if attempt < max_retries:
-                        logger.info(f"Retrying with fixed response... (attempt {attempt + 1}/{max_retries})")
+                        logger.info(f"[LLM] Retrying with fixed response... (attempt {attempt + 1}/{max_retries})")
                         # Use the fixed response as input for next attempt
                         user_prompt = f"{user_prompt}\n\nPrevious response that needs improvement: {validated_response}"
                         continue
                 
                 # Non-fixable errors or all retries exhausted
                 if attempt < max_retries:
-                    logger.warning(f"Validation failed: {validation_result.errors}. Retrying... (attempt {attempt + 1}/{max_retries})")
+                    logger.warning(f"[LLM] Validation failed: {validation_result.errors}. Retrying... (attempt {attempt + 1}/{max_retries})")
                 else:
-                    logger.error(f"Validation failed after {max_retries} attempts. Errors: {validation_result.errors}")
+                    logger.error(f"[LLM] Validation failed after {max_retries} attempts. Errors: {validation_result.errors}")
                     # Return the fixed response even if validation failed (better than nothing)
                     if validated_response and validated_response != raw_response:
-                        logger.info("Returning fixed response despite validation failures")
+                        logger.info("[LLM] Returning fixed response despite validation failures")
                         return validated_response, validation_result
         
         # All retries exhausted
