@@ -1,12 +1,12 @@
 # Groww FAQ Chatbot
 
-A small FAQ assistant that answers facts about mutual fund schemes—e.g., expense ratio, exit load, minimum SIP, lock-in (ELSS), riskometer, benchmark, and how to download statements—using only official public pages.
+A small FAQ assistant that answers facts about SBI mutual fund schemes—e.g., expense ratio, exit load, minimum SIP, lock-in (ELSS), riskometer, benchmark, and how to download statements—using only official public pages.
 
 ## Features
 
 - **Factual Information Only**: Provides factual answers about mutual fund schemes
 - **RAG-based**: Uses Retrieval Augmented Generation with Pinecone vector database
-- **Gemini LLM**: Powered by Google Gemini for response generation
+- **LLM**: Powered by llama for response generation
 - **Query Classification**: Automatically detects and blocks investment advice requests
 - **Source Citations**: All responses include source URLs
 - **Modern UI**: Groww-inspired Streamlit interface
