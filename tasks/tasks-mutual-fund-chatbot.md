@@ -144,6 +144,13 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 8.12 Note: Groq API is cloud-based, no separate server needed (document API key setup) ✅ DONE (Documented in DEPLOYMENT.md and README.md)
   - [ ] 8.13 Test deployed application and verify all features work in production (MANUAL - requires deployment)
   - [x] 8.14 Update README.md with setup instructions, usage guide, and deployment notes ✅ DONE (Updated README.md with all sections)
+- [ ] 9.0 Post-Deployment Fixes and Improvements
+  - [ ] 9.1 Fix source citations - Source URLs not displaying/clickable
+  - [ ] 9.2 Deep dive into factual answer generation - Investigate why all factual queries don't generate answers
+  - [ ] 9.3 Test and add more sample queries - Expand example questions with verified answers
+  - [ ] 9.4 Add context retention for user sessions - Use conversation history for answering subsequent questions
+  - [ ] 9.5 Fix interface dimming during query processing - Improve UI responsiveness and loading indicators
+  - [ ] 9.6 Add more scraping URLs and verify information coverage - Expand data coverage for all schemes and factual information types
 
 ## Current Status & Next Steps
 

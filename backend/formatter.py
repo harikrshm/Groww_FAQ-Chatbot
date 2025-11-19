@@ -55,9 +55,11 @@ def format_response(
     # Clean up answer
     answer = answer.strip()
     
-    # Determine source URL
-    if not source_url:
+    # Determine source URL - handle None, empty string, or whitespace-only strings
+    if not source_url or (isinstance(source_url, str) and not source_url.strip()):
         source_url = DEFAULT_FALLBACK_URL
+    else:
+        source_url = source_url.strip()
     
     # Validate URL format
     try:

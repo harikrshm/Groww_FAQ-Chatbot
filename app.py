@@ -146,18 +146,24 @@ def process_query(query: str, llm_service, retrieval_system):
     
     logger = logging.getLogger(__name__)
     
+    logger.info(f"[QUERY PROCESSING] Starting query processing for: '{query}'")
+    
     # Detect if this is an example question (normalize for comparison)
     normalized_query = query.strip()
     is_example_question = normalized_query in EXAMPLE_QUESTIONS
+    logger.debug(f"[QUERY PROCESSING] Is example question: {is_example_question}")
     
     # Step 1: Preprocess query
+    logger.info("[QUERY PROCESSING] Step 1: Preprocessing query...")
     preprocessed = preprocess_query(query)
     classification = preprocessed['classification']
     scheme_name = preprocessed.get('scheme_name')
     precomputed_response = preprocessed.get('precomputed_response')
+    logger.info(f"[QUERY PROCESSING] Classification: {classification}, Scheme: {scheme_name}, Has precomputed: {bool(precomputed_response)}")
     
     # Step 2: Check for precomputed response (advice, jailbreak, non-MF, scheme not available)
     if precomputed_response:
+        logger.info(f"[QUERY PROCESSING] Step 2: Using precomputed response (type: {classification})")
         return format_response(
             answer=precomputed_response.get('answer', ''),
             source_url=precomputed_response.get('source_url', ''),
@@ -167,39 +173,52 @@ def process_query(query: str, llm_service, retrieval_system):
     
     # Step 3: Retrieve chunks (only for factual queries)
     if classification != 'factual':
-        # Should not happen, but handle gracefully
+        logger.warning(f"[QUERY PROCESSING] Step 3: Non-factual classification '{classification}' - using fallback")
         return format_fallback_response(query, scheme_name)
     
+    logger.info(f"[QUERY PROCESSING] Step 3: Retrieving chunks (top_k={RETRIEVAL_CONFIG.get('top_k', 3)}, scheme={scheme_name})...")
     chunks = retrieval_system.retrieve(
         query=preprocessed['expanded_query'],
         top_k=RETRIEVAL_CONFIG.get("top_k", 3),  # Use optimized top_k from config
         scheme_name=scheme_name,
         include_metadata=True
     )
-
+    logger.info(f"[QUERY PROCESSING] Retrieved {len(chunks)} chunks")
+    
     if not chunks:
-        # No chunks retrieved - use fallback
+        logger.warning("[QUERY PROCESSING] No chunks retrieved - using fallback response")
         return format_fallback_response(query, scheme_name)
+    
+    # Log chunk details
+    for i, chunk in enumerate(chunks[:3], 1):  # Log top 3 chunks
+        logger.debug(f"[QUERY PROCESSING] Chunk {i}: scheme={chunk.get('scheme_name')}, score={chunk.get('reranked_score', chunk.get('score', 0)):.4f}, has_text={bool(chunk.get('text'))}")
 
     # Step 4: Prepare context (optimized for token efficiency)
     max_chunks = RETRIEVAL_CONFIG.get("top_k", 3)  # Use same as top_k
+    max_context_tokens = RETRIEVAL_CONFIG.get("max_context_tokens", 800)
+    logger.info(f"[QUERY PROCESSING] Step 4: Preparing context (max_chunks={max_chunks}, max_tokens={max_context_tokens})...")
     context_dict = retrieval_system.prepare_context(
         chunks, 
         max_chunks=max_chunks,
-        max_context_tokens=RETRIEVAL_CONFIG.get("max_context_tokens", 800)
+        max_context_tokens=max_context_tokens
     )
     context = context_dict['context']
     source_urls = context_dict['source_urls']
     primary_source_url = source_urls[0] if source_urls else None
+    logger.info(f"[QUERY PROCESSING] Context prepared: {len(context)} chars, {len(source_urls)} source URLs, chunks_used={context_dict.get('num_chunks', 0)}")
 
     # Step 5: Format user prompt
+    logger.info("[QUERY PROCESSING] Step 5: Formatting user prompt...")
     user_prompt = llm_service.format_user_prompt(context, query)
+    logger.debug(f"[QUERY PROCESSING] User prompt length: {len(user_prompt)} chars")
 
     # Step 6: Choose system prompt based on query type
     # Use example question prompt for example questions
     system_prompt_to_use = EXAMPLE_QUESTION_SYSTEM_PROMPT if is_example_question else SYSTEM_PROMPT
+    logger.debug(f"[QUERY PROCESSING] Step 6: Using {'example' if is_example_question else 'standard'} system prompt")
 
     # Step 7: Generate validated response
+    logger.info("[QUERY PROCESSING] Step 7: Generating validated response...")
     validated_response, validation_result = llm_service.generate_validated_response(
         system_prompt=system_prompt_to_use,
         user_prompt=user_prompt,
@@ -209,8 +228,14 @@ def process_query(query: str, llm_service, retrieval_system):
         max_retries=3,
         use_fallback=True
     )
+    logger.info(f"[QUERY PROCESSING] Response generated: length={len(validated_response) if validated_response else 0} chars, valid={validation_result.is_valid if hasattr(validation_result, 'is_valid') else 'unknown'}")
+    if hasattr(validation_result, 'errors') and validation_result.errors:
+        logger.warning(f"[QUERY PROCESSING] Validation errors: {validation_result.errors}")
+    if hasattr(validation_result, 'fixes_applied') and validation_result.fixes_applied:
+        logger.info(f"[QUERY PROCESSING] Fixes applied: {validation_result.fixes_applied}")
     
     # Step 9: Format response
+    logger.info("[QUERY PROCESSING] Step 8: Formatting final response...")
     formatted_response = format_response(
         answer=validated_response,
         source_url=primary_source_url,
@@ -218,6 +243,7 @@ def process_query(query: str, llm_service, retrieval_system):
         query=query,
         scheme_name=scheme_name
     )
+    logger.info(f"[QUERY PROCESSING] Query processing complete. Response ready with source_url={bool(formatted_response.get('source_url'))}")
 
     return formatted_response
 
@@ -276,10 +302,12 @@ def main():
             
             # Add bot response to history
             from frontend.components.chat_ui import add_message_to_history
+            # Ensure source_url is not None or empty string
+            source_url = formatted_response.get('source_url', '').strip() if formatted_response.get('source_url') else None
             add_message_to_history(
                 'bot',
                 formatted_response.get('answer', ''),
-                source_url=formatted_response.get('source_url')
+                source_url=source_url if source_url else None
             )
             
         except Exception as e:
