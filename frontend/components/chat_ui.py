@@ -50,12 +50,16 @@ def render_message_bubble(message: str, is_user: bool, source_url: Optional[str]
         )
         
         # Display source URL badge if available - using purple accent color
-        if source_url:
+        # Check for both None and empty string
+        if source_url and source_url.strip():
+            # Escape HTML in URL to prevent XSS
+            import html
+            escaped_url = html.escape(source_url.strip())
             st.markdown(
                 f"""
                 <div style='display: flex; justify-content: flex-start; margin-top: 4px; 
                             margin-bottom: 8px; padding: 0 4px;'>
-                    <a href='{source_url}' target='_blank' 
+                    <a href='{escaped_url}' target='_blank' rel='noopener noreferrer'
                        style='background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%); 
                               color: #FFFFFF; padding: 6px 12px; border-radius: 12px; 
                               font-size: 11px; font-weight: 600; text-decoration: none; 
@@ -98,6 +102,10 @@ def render_chat_history(chat_history: List[Dict]):
         role = msg.get('role', 'bot')
         content = msg.get('content', '')
         source_url = msg.get('source_url', None)
+        
+        # Ensure source_url is not empty string
+        if source_url and isinstance(source_url, str) and not source_url.strip():
+            source_url = None
         
         is_user = (role == 'user')
         render_message_bubble(content, is_user, source_url if not is_user else None)
@@ -232,6 +240,12 @@ def add_message_to_history(role: str, content: str, source_url: Optional[str] = 
     """
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
+    
+    # Normalize source_url - convert empty strings to None
+    if source_url and isinstance(source_url, str):
+        source_url = source_url.strip() if source_url.strip() else None
+    elif not source_url:
+        source_url = None
     
     message = {
         'role': role,
