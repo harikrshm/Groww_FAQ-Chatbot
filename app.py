@@ -8,7 +8,17 @@ import sys
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env (local) or Streamlit secrets (cloud)
+# Try Streamlit secrets first (for deployment)
+try:
+    # If running on Streamlit Cloud, load secrets into environment
+    if hasattr(st, 'secrets'):
+        for key, value in st.secrets.items():
+            os.environ[key] = str(value)
+except Exception:
+    pass
+
+# Load from .env file (for local development)
 load_dotenv()
 
 # Add current directory to path for imports
