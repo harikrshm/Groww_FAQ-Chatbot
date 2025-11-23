@@ -86,12 +86,13 @@ def render_chat_history(chat_history: List[Dict]):
         return
     
     # Create a modern container for chat messages with proper scrolling
+    # Removed min-height to prevent empty white space
     st.markdown(
         """
         <div id="chat-container" style='background-color: #FFFFFF; border-radius: 16px; 
                     padding: 16px; margin: 0 0 12px 0; 
                     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
-                    min-height: 400px; max-height: 60vh; overflow-y: auto;
+                    max-height: 60vh; overflow-y: auto;
                     border: 2px solid #E5E7EB;'>
         """,
         unsafe_allow_html=True

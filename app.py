@@ -359,26 +359,40 @@ def main():
         if st.session_state.chat_history:
             from frontend.components.chat_ui import render_chat_history
             render_chat_history(st.session_state.chat_history)
+        else:
+            # Show placeholder when no chat history
+            st.markdown(
+                """
+                <div style='text-align: center; padding: 40px 20px; color: #9CA3AF;'>
+                    <h3 style='color: #6B7280; font-size: 1.2rem; margin-bottom: 8px;'>👋 Welcome!</h3>
+                    <p style='font-size: 0.95rem;'>Ask me anything about SBI Mutual Funds</p>
+                    <p style='font-size: 0.85rem; margin-top: 12px;'>Try the example questions or type your own below</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
         
         # Show loading indicator if processing
         if st.session_state.processing:
             from frontend.components.chat_ui import render_loading_indicator
             render_loading_indicator()
         
-        # Get user input (input area rendered here in right column)
-        user_input = get_user_input()
-        
-        # Handle user input
-        if user_input:
-            # Add user message to history
-            from frontend.components.chat_ui import add_message_to_history
-            add_message_to_history('user', user_input)
-            
-            # Store query for processing and mark as processing
-            st.session_state.pending_query = user_input
-            st.session_state.processing = True
-            st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
+    
+    # IMPORTANT: Input MUST be outside columns to stick to bottom properly
+    # Get user input at page level (not inside columns)
+    user_input = get_user_input()
+    
+    # Handle user input
+    if user_input:
+        # Add user message to history
+        from frontend.components.chat_ui import add_message_to_history
+        add_message_to_history('user', user_input)
+        
+        # Store query for processing and mark as processing
+        st.session_state.pending_query = user_input
+        st.session_state.processing = True
+        st.rerun()
     
     # Add clear chat button in sidebar
     with st.sidebar:
