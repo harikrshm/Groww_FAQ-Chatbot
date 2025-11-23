@@ -1,206 +1,268 @@
-# Deployment Guide
+# Deployment Guide - Streamlit Cloud
 
-This guide covers deployment of the Mutual Fund FAQ Chatbot on Streamlit Cloud.
+This guide covers deployment of the Groww Mutual Fund FAQ Chatbot on Streamlit Cloud.
 
-## Prerequisites
+## 📋 Prerequisites
 
-- GitHub repository with code pushed
-- Streamlit Cloud account (free tier available)
-- Valid API keys (Groq and Pinecone)
+- ✅ GitHub repository with code pushed
+- ✅ Streamlit Cloud account ([free tier available](https://streamlit.io/cloud))
+- ✅ Valid Groq API key ([get here](https://console.groq.com))
+- ✅ Valid Pinecone API key ([get here](https://www.pinecone.io/))
 
-## Environment Variables
+## 🔑 Environment Variables
 
-The following environment variables must be set in Streamlit Cloud:
+The following environment variables must be configured in Streamlit Cloud Secrets:
 
 ### Required Variables
 
-1. **GROQ_API_KEY**
-   - Description: Groq API key for LLM generation (Llama 3.1 8B Instant)
-   - How to get: Visit [Groq Console](https://console.groq.com/keys)
-   - Example: `gsk_...`
+| Variable | Description | Where to Get | Example |
+|----------|-------------|--------------|---------|
+| `GROQ_API_KEY` | Groq API key for Llama 3.1 8B Instant | [Groq Console](https://console.groq.com/keys) | `gsk_...` |
+| `PINECONE_API_KEY` | Pinecone API key for vector database | [Pinecone Dashboard](https://app.pinecone.io/) | `pcsk_...` |
+| `PINECONE_INDEX_NAME` | Name of your Pinecone index | Your Pinecone project | `ragchatbot` |
 
-2. **PINECONE_API_KEY**
-   - Description: Pinecone API key for vector database access
-   - How to get: Visit [Pinecone Dashboard](https://app.pinecone.io/)
-   - Example: `abc123...`
+### Optional Variables
 
-3. **PINECONE_INDEX_NAME**
-   - Description: Name of your Pinecone index
-   - Default: `ragchatbot`
-   - Example: `ragchatbot`
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GROQ_MODEL` | Llama model to use | `llama-3.1-8b-instant` |
+| `EMBEDDING_MODEL_NAME` | Sentence transformer model | `sentence-transformers/all-MiniLM-L6-v2` |
 
-## Streamlit Cloud Deployment Steps
+## 🚀 Streamlit Cloud Deployment Steps
 
 ### Step 1: Prepare Repository
 
-1. Ensure all code is pushed to GitHub
-2. Verify `app.py` is in the root directory
-3. Verify `requirements.txt` exists and is up to date
-4. Ensure `.env` is in `.gitignore` (never commit API keys!)
+1. **Ensure all code is pushed to GitHub main branch**
+   ```bash
+   git status
+   git add .
+   git commit -m "Final deployment preparation"
+   git push origin main
+   ```
+
+2. **Verify required files exist**:
+   - ✅ `app.py` (entry point)
+   - ✅ `requirements.txt` (dependencies)
+   - ✅ `config.py` (configuration)
+   - ✅ `.streamlit/config.toml` (optional theme config)
+
+3. **Double-check `.gitignore`**:
+   - ✅ `.env` is ignored (never commit API keys!)
+   - ✅ `__pycache__/` is ignored
+   - ✅ `*.pyc` is ignored
 
 ### Step 2: Deploy on Streamlit Cloud
 
-1. Go to [Streamlit Cloud](https://streamlit.io/cloud)
-2. Sign in with your GitHub account
-3. Click "New app"
-4. Select your repository
-5. Set main file path: `app.py`
-6. Set branch: `main` or `feature/mutual-fund-chatbot`
+1. Go to [https://streamlit.io/cloud](https://streamlit.io/cloud)
+2. Click **"Sign in"** with your GitHub account
+3. Click **"New app"** button
+4. Configure deployment:
+   - **Repository:** Select `Groww_FAQ-Chatbot`
+   - **Branch:** `main`
+   - **Main file path:** `app.py`
+   - **App URL:** Choose a custom name (e.g., `groww-mf-chatbot`)
 
-### Step 3: Configure Environment Variables
+### Step 3: Configure Secrets (TOML Format)
 
-1. In the app settings, go to "Secrets"
-2. Add each environment variable:
-   ```
-   GROQ_API_KEY=your_actual_key_here
-   PINECONE_API_KEY=your_actual_key_here
-   PINECONE_INDEX_NAME=ragchatbot
-   ```
-3. Save the secrets
-
-### Step 4: Deploy
-
-1. Click "Deploy" or "Redeploy"
-2. Wait for deployment to complete
-3. Your app will be available at: `https://your-app-name.streamlit.app`
-
-## Streamlit Configuration
-
-The `.streamlit/config.toml` file (if needed) can contain:
+Streamlit Cloud uses TOML format for secrets. Click **"Advanced settings"** → **"Secrets"** and add:
 
 ```toml
-[theme]
-primaryColor = "#0F4C75"
-backgroundColor = "#F8F9FA"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#1F2937"
-font = "sans serif"
+# Groq API Configuration (for Llama LLM)
+GROQ_API_KEY = "gsk_your_actual_groq_api_key_here"
+GROQ_MODEL = "llama-3.1-8b-instant"
 
-[server]
-headless = true
-port = 8501
-enableCORS = false
-enableXsrfProtection = true
+# Pinecone Configuration (Vector Database)
+PINECONE_API_KEY = "pcsk_your_actual_pinecone_api_key_here"
+PINECONE_INDEX_NAME = "ragchatbot"
+
+# Embedding Model (optional)
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 ```
 
-## Post-Deployment Verification
+**Important Notes:**
+- Use actual values (remove placeholders)
+- TOML format: `KEY = "value"` (not `KEY=value`)
+- Changes take ~1 minute to propagate
 
-### 1. Test Basic Functionality
+### Step 4: Deploy & Verify
+
+1. Click **"Deploy!"** button
+2. Wait for deployment (usually 2-5 minutes)
+3. Check deployment logs for errors
+4. Your app will be live at: `https://your-app-name.streamlit.app`
+
+## ✅ Post-Deployment Verification
+
+### 1. Basic Functionality Tests
+
 - [ ] App loads without errors
-- [ ] Welcome screen displays correctly
-- [ ] Logos load correctly
-- [ ] Example questions are clickable
+- [ ] Title and header display correctly
+- [ ] Left column shows "Available Schemes" (5 schemes)
+- [ ] Left column shows "Sample Query" (3 example buttons)
+- [ ] Right column shows welcome message
+- [ ] Input box appears below chat area
 
-### 2. Test Query Processing
-- [ ] Factual queries return responses
-- [ ] Advice queries are blocked
-- [ ] Non-MF queries are handled
-- [ ] Source URLs are clickable
+### 2. Query Processing Tests
 
-### 3. Test Error Handling
-- [ ] Invalid queries handled gracefully
-- [ ] API failures show fallback messages
-- [ ] No crashes on edge cases
+Try these test queries:
 
-### 4. Check Logs
-- [ ] No critical errors in Streamlit logs
-- [ ] API calls are successful
-- [ ] Response times are acceptable
+| Query | Expected Result |
+|-------|----------------|
+| "What is the NAV of SBI Large Cap Fund?" | Returns NAV value with source URL |
+| "What is the exit load for SBI Multicap Fund?" | Returns exit load details |
+| "What is the minimum SIP for SBI Small Cap Fund?" | Returns minimum SIP amount |
+| "Should I invest in SBI funds?" | Blocks with advice warning |
+| "What is bitcoin?" | Blocks with non-MF warning |
 
-## Troubleshooting
+### 3. UI/UX Tests
 
-### App Won't Deploy
+- [ ] User messages appear right-aligned (green)
+- [ ] Bot messages appear left-aligned (white with green border)
+- [ ] Source URLs are clickable purple badges
+- [ ] Input box has green styling
+- [ ] Loading indicator shows "Thinking..."
+- [ ] Chat scrolls automatically
 
-**Issue**: Deployment fails
-- Check that `app.py` exists in root
-- Verify `requirements.txt` is correct
-- Check Streamlit Cloud logs for errors
+### 4. Error Handling Tests
 
-**Issue**: Module not found errors
-- Ensure all dependencies are in `requirements.txt`
-- Check Python version compatibility
+- [ ] Empty query handled gracefully
+- [ ] Invalid scheme name returns fallback
+- [ ] API failures show error message (not crash)
 
-### API Errors
+## 🐛 Troubleshooting
 
-**Issue**: "GROQ_API_KEY not found"
-- Verify environment variable is set in Streamlit Cloud secrets
-- Check variable name spelling (case-sensitive)
-- Redeploy after adding secrets
+### Deployment Fails
 
-**Issue**: "PINECONE_API_KEY not found"
-- Verify environment variable is set
-- Check Pinecone index name matches
-- Verify index exists in Pinecone dashboard
+**Issue:** "Could not find a version that satisfies the requirement torch==2.0.1"
+- **Fix:** Update `requirements.txt` with compatible versions for Python 3.11+:
+  ```txt
+  sentence-transformers>=3.0.0
+  torch>=2.5.0
+  ```
+
+**Issue:** "ModuleNotFoundError: No module named 'backend'"
+- **Fix:** Ensure directory structure is correct
+- **Fix:** Add `__init__.py` to backend/ folder
+
+**Issue:** "No such file or directory: 'frontend/styles.css'"
+- **Fix:** Verify file paths are correct
+- **Fix:** Check capitalization (case-sensitive on Linux servers)
+
+### API Key Errors
+
+**Issue:** "GROQ_API_KEY not found in environment variables"
+- **Fix:** Check secrets are added in Streamlit Cloud dashboard
+- **Fix:** Verify TOML format is correct: `KEY = "value"`
+- **Fix:** Click "Reboot app" after adding secrets
+
+**Issue:** "401 Unauthorized" from Groq API
+- **Fix:** Regenerate API key in Groq Console
+- **Fix:** Update secret in Streamlit Cloud
+- **Fix:** Ensure key hasn't expired
+
+**Issue:** "PINECONE_API_KEY not found"
+- **Fix:** Verify API key is added to secrets
+- **Fix:** Check index name matches your Pinecone project
+- **Fix:** Ensure index is active (not paused)
 
 ### Performance Issues
 
-**Issue**: Slow response times
-- Check Pinecone index performance
-- Verify Groq API quota not exceeded (6000 TPM free tier)
-- Check network latency
-- Verify token optimization is working
+**Issue:** Slow response times (>10 seconds)
+- **Cause:** Cold start (first query after idle)
+- **Fix:** Normal behavior - subsequent queries will be faster
+- **Optimization:** Already implemented (token limits, top-k=3)
 
-**Issue**: Timeout errors
-- Increase timeout settings if needed
-- Optimize query processing
-- Check API rate limits
+**Issue:** "Cannot copy out of meta tensor" error
+- **Cause:** PyTorch compatibility issue
+- **Fix:** Already fixed with `device='cpu'` in `retrieval.py`
+- **Fix:** Ensure `requirements.txt` has correct versions
 
-## Security Best Practices
+**Issue:** Rate limit errors from Groq
+- **Symptom:** "Rate limit exceeded" message
+- **Cause:** Free tier: 6,000 tokens/minute
+- **Fix:** Wait 60 seconds
+- **Fix:** Consider Groq paid tier for production
 
-1. **Never commit API keys**
-   - Keep `.env` in `.gitignore`
-   - Use Streamlit Cloud secrets for production
+## 🔒 Security Best Practices
 
-2. **Rotate keys regularly**
-   - Update API keys periodically
-   - Revoke old keys when rotating
+1. **API Keys**
+   - ❌ Never commit `.env` to Git
+   - ✅ Use Streamlit Cloud secrets only
+   - ✅ Rotate keys every 3-6 months
+   - ✅ Revoke old keys immediately
 
-3. **Monitor usage**
-   - Check API usage regularly
-   - Set up alerts for quota limits
+2. **Access Control**
+   - ✅ Keep repo private if handling sensitive data
+   - ✅ Limit collaborator access
+   - ✅ Use read-only API keys where possible
 
-4. **Limit access**
-   - Use least privilege principle
-   - Restrict API key permissions where possible
+3. **Monitoring**
+   - ✅ Check Streamlit logs regularly
+   - ✅ Monitor Groq API usage
+   - ✅ Track Pinecone query volume
+   - ✅ Set up alerts for quota limits
 
-## Cost Considerations
+## 💰 Cost Considerations
 
-### Groq API
-- Free tier: 6000 tokens per minute (TPM)
-- Model: Llama 3.1 8B Instant (optimized for speed)
-- Monitor usage in Groq Console
-- Token optimization implemented (~965 tokens per request)
+### Groq API (Llama 3.1 8B Instant)
+- **Free Tier:** 6,000 tokens/minute, 14,400 requests/day
+- **Our Usage:** ~965 tokens per query (optimized)
+- **Capacity:** ~370 queries/hour on free tier
+- **Paid Tier:** Available for higher volume
 
-### Pinecone
-- Free tier: 1 index, limited queries
-- Paid tier: More indexes and queries
-- Monitor usage in Pinecone dashboard
+### Pinecone (Vector Database)
+- **Free Tier:** 1 index, 100K vectors, limited queries
+- **Our Usage:** <10K vectors (SBI MF data)
+- **Queries:** Fast (<100ms response time)
+- **Paid Tier:** Starts at $70/month for more indexes
 
 ### Streamlit Cloud
-- Free tier: Public apps only
-- Team tier: Private apps available
+- **Free Tier:** Public apps only, community resources
+- **Limitations:** App sleeps after inactivity
+- **Paid Tier:** $20/month per private app
 
-## Maintenance
+### Total Cost (Free Tier)
+- ✅ **$0/month** for testing and low-volume production!
+
+## 🔧 Maintenance
 
 ### Regular Updates
-- Update dependencies monthly
-- Check for security updates
-- Monitor API changes
 
-### Monitoring
-- Set up error alerts
-- Monitor response times
-- Track API usage
+**Monthly:**
+- Update dependencies: `pip list --outdated`
+- Check for security patches
+- Review API changelog
 
-### Backup
-- Keep code in version control
-- Document configuration changes
-- Backup environment variable values (securely)
+**Quarterly:**
+- Rotate API keys
+- Review usage patterns
+- Optimize token usage
 
-## Support Resources
+**Annually:**
+- Audit permissions
+- Review architecture
+- Consider scaling options
 
-- [Streamlit Cloud Docs](https://docs.streamlit.io/streamlit-community-cloud)
-- [Groq API Docs](https://console.groq.com/docs)
-- [Pinecone Docs](https://docs.pinecone.io/)
-- [Project Issues](https://github.com/your-repo/issues)
+### Monitoring Checklist
 
+- [ ] Check Streamlit app health
+- [ ] Monitor Groq API usage
+- [ ] Monitor Pinecone query volume
+- [ ] Review error logs
+- [ ] Test example queries
+- [ ] Verify source URLs still valid
+
+## 📚 Support Resources
+
+- **Streamlit:** [docs.streamlit.io](https://docs.streamlit.io/)
+- **Groq:** [console.groq.com/docs](https://console.groq.com/docs)
+- **Pinecone:** [docs.pinecone.io](https://docs.pinecone.io/)
+- **GitHub Issues:** [Your Repository Issues]
+
+## 🎉 Success!
+
+Your chatbot is now live! Share the URL and start answering mutual fund questions!
+
+**Live URL:** `https://your-app-name.streamlit.app`
+
+Test it with: "What is the NAV of SBI Large Cap Fund?"
