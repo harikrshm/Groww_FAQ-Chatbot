@@ -33,6 +33,7 @@ data/processed/
 # Logs
 *.log
 logs/
+debug_pipeline_*.log
 
 # Testing
 .pytest_cache/
