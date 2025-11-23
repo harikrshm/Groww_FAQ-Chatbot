@@ -11,9 +11,8 @@ selenium>=4.15.0
 webdriver-manager>=4.0.0
 
 # Vector database and embeddings
-sentence-transformers==2.2.2
-torch==2.0.1
-torchvision==0.15.2
+sentence-transformers>=3.0.0
+torch>=2.5.0
 pinecone>=5.0.0
 
 # LLM integration
