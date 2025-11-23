@@ -73,7 +73,14 @@ class RetrievalSystem:
             SentenceTransformer model
         """
         logger.info(f"Loading embedding model: {self.embedding_model_name}")
-        model = SentenceTransformer(self.embedding_model_name)
+        
+        # Fix for PyTorch meta tensor issue on Streamlit Cloud
+        # Use device='cpu' to avoid meta tensor issues
+        model = SentenceTransformer(
+            self.embedding_model_name,
+            device='cpu'
+        )
+        
         logger.info("Embedding model loaded successfully")
         return model
     
