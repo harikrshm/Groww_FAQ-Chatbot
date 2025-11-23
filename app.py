@@ -100,11 +100,12 @@ def get_user_input():
         
         return example_question
     
-    # Get input from chat UI
+    # Get input from chat UI (st.chat_input returns text when submitted)
     from frontend.components.chat_ui import render_input_area
     user_input, send_clicked = render_input_area()
     
-    if send_clicked and user_input:
+    # st.chat_input returns the input text directly when user submits (presses Enter)
+    if user_input:
         return user_input.strip()
     
     return None

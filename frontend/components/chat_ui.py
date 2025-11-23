@@ -131,18 +131,18 @@ def render_chat_history(chat_history: List[Dict]):
 
 def render_input_area():
     """
-    Render the input area with modern styling and send button
+    Render the input area using Streamlit's modern chat input
     
     Returns:
         Tuple of (user_input, send_clicked)
         - user_input: The text entered by the user
-        - send_clicked: True if send button was clicked
+        - send_clicked: True if user submitted input (always True when user_input exists)
     """
-    # Add custom styling for input area with green color palette
+    # Add custom styling for chat input with green color palette
     st.markdown(
         """
         <style>
-            .stTextInput > div > div > input {
+            .stChatInput > div > div > textarea {
                 border: 2px solid #E5E7EB;
                 border-radius: 20px;
                 padding: 12px 18px;
@@ -151,53 +151,38 @@ def render_input_area():
                 transition: all 0.3s ease;
                 color: #1F2937;
             }
-            .stTextInput > div > div > input:focus {
+            .stChatInput > div > div > textarea:focus {
                 border-color: #10B981;
                 outline: none;
                 box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
             }
-            .stTextInput > div > div > input::placeholder {
+            .stChatInput > div > div > textarea::placeholder {
                 color: #9CA3AF;
             }
-            .stButton > button[kind="primary"] {
+            .stChatInput button {
                 background: linear-gradient(135deg, #10B981 0%, #059669 100%);
                 color: #FFFFFF;
                 border: none;
-                border-radius: 20px;
-                padding: 12px 24px;
-                font-weight: 600;
-                font-size: 14px;
+                border-radius: 50%;
                 transition: all 0.3s ease;
                 box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
             }
-            .stButton > button[kind="primary"]:hover {
+            .stChatInput button:hover {
                 background: linear-gradient(135deg, #059669 0%, #047857 100%);
-                transform: translateY(-2px);
+                transform: scale(1.05);
                 box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
-            }
-            .stButton > button[kind="primary"]:active {
-                transform: translateY(0);
             }
         </style>
         """,
         unsafe_allow_html=True
     )
     
-    # Create columns for input and button - compact design
-    col1, col2 = st.columns([4.5, 1], gap="small")
+    # Use Streamlit's built-in chat input (automatically positioned at bottom)
+    user_input = st.chat_input("Ask about expense ratios, exit loads, minimum SIP, etc...")
     
-    with col1:
-        user_input = st.text_input(
-            "Type your question here...",
-            key="user_input",
-            label_visibility="collapsed",
-            placeholder="Ask about expense ratios, exit loads, minimum SIP, etc..."
-        )
-    
-    with col2:
-        send_clicked = st.button("Send", type="primary", use_container_width=True)
-    
-    return user_input, send_clicked
+    # st.chat_input returns the text when user submits, or None
+    # Return format: (user_input, send_clicked) where send_clicked is True if input exists
+    return user_input, bool(user_input)
 
 
 def render_loading_indicator():
