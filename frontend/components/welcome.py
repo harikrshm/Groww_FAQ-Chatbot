@@ -11,16 +11,12 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from backend.query_processor import AVAILABLE_SCHEMES
 
-# Example question with pre-computed answer
-EXAMPLE_QUESTION = "What is the minimum SIP for SBI Small Cap Fund?"
-EXAMPLE_QUESTIONS = [EXAMPLE_QUESTION]  # Keep as list for backward compatibility
-
-# Pre-computed answer for the example question
-EXAMPLE_QUESTION_ANSWER = {
-    'query': "What is the minimum SIP for SBI Small Cap Fund?",
-    'answer': "The minimum SIP amount for SBI Small Cap Fund is ₹ 500. Last updated from sources.",
-    'source_url': "https://www.sbimf.com"
-}
+# Example questions (expanded with tested queries)
+EXAMPLE_QUESTIONS = [
+    "What is the minimum SIP for SBI Small Cap Fund?",
+    "What is the exit load for SBI Multicap Fund?",
+    "What is the ELSS lock-in for SBI Large Cap Fund?"
+]
 
 
 def render_schemes_section():
@@ -61,9 +57,9 @@ def render_schemes_section():
 
 def render_example_questions():
     """
-    Render the example question section (for left quadrant) - redesigned for single question
+    Render the example questions section (for left quadrant) - displays 3 sample queries
     """
-    # Example question section
+    # Example questions section
     st.markdown(
         """
         <div style='margin: 20px 0 12px 0;'>
@@ -78,7 +74,7 @@ def render_example_questions():
         unsafe_allow_html=True
     )
     
-    # Display single example question - full width, styled button
+    # Display example question buttons - full width, styled buttons
     button_style = """
         <style>
             div[data-testid="stButton"] > button[kind="secondary"] {
@@ -86,16 +82,16 @@ def render_example_questions():
                 color: #10B981 !important;
                 border: 2px solid #10B981 !important;
                 border-radius: 8px !important;
-                padding: 12px 16px !important;
+                padding: 10px 12px !important;
                 font-weight: 500 !important;
-                font-size: 12px !important;
+                font-size: 11px !important;
                 transition: all 0.3s ease !important;
                 width: 100% !important;
-                text-align: center !important;
+                text-align: left !important;
                 white-space: normal !important;
                 height: auto !important;
-                min-height: 60px !important;
-                margin-bottom: 12px !important;
+                min-height: 48px !important;
+                margin-bottom: 8px !important;
                 line-height: 1.4 !important;
             }
             div[data-testid="stButton"] > button[kind="secondary"]:hover {
@@ -109,39 +105,17 @@ def render_example_questions():
     """
     st.markdown(button_style, unsafe_allow_html=True)
     
-    # Display the example question button
-    if st.button(
-        EXAMPLE_QUESTION,
-        key="example_question_btn",
-        use_container_width=True,
-        type="secondary"
-    ):
-        # Store the question and answer in session state
-        st.session_state.example_question = EXAMPLE_QUESTION
-        st.session_state.example_question_answer = EXAMPLE_QUESTION_ANSWER
-        st.rerun()
-    
-    # Display pre-computed answer if example question was clicked
-    if 'example_question_answer' in st.session_state:
-        answer_data = st.session_state.example_question_answer
-        st.markdown(
-            f"""
-            <div style='background: #F0FDF4; border: 2px solid #10B981; border-radius: 8px; 
-                        padding: 12px; margin-top: 12px;'>
-                <p style='color: #1F2937; font-size: 12px; font-weight: 600; margin-bottom: 8px;'>
-                    Sample Answer:
-                </p>
-                <p style='color: #374151; font-size: 11px; line-height: 1.5; margin-bottom: 8px;'>
-                    {answer_data['answer']}
-                </p>
-                <a href='{answer_data['source_url']}' target='_blank' 
-                   style='color: #10B981; font-size: 10px; text-decoration: none; font-weight: 500;'>
-                    📎 View Source
-                </a>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    # Display each example question as a button
+    for idx, question in enumerate(EXAMPLE_QUESTIONS):
+        if st.button(
+            question,
+            key=f"example_question_btn_{idx}",
+            use_container_width=True,
+            type="secondary"
+        ):
+            # Store the question in session state to be processed
+            st.session_state.example_question = question
+            st.rerun()
 
 
 def render_header():

@@ -100,12 +100,12 @@ def get_user_input():
         
         return example_question
     
-    # Get input from chat UI (st.chat_input returns text when submitted)
+    # Get input from chat UI
     from frontend.components.chat_ui import render_input_area
     user_input, send_clicked = render_input_area()
     
-    # st.chat_input returns the input text directly when user submits (presses Enter)
-    if user_input:
+    # Return input only if send button was clicked and input is not empty
+    if send_clicked and user_input:
         return user_input.strip()
     
     return None
@@ -378,21 +378,20 @@ def main():
             render_loading_indicator()
         
         st.markdown("</div>", unsafe_allow_html=True)
-    
-    # IMPORTANT: Input MUST be outside columns to stick to bottom properly
-    # Get user input at page level (not inside columns)
-    user_input = get_user_input()
-    
-    # Handle user input
-    if user_input:
-        # Add user message to history
-        from frontend.components.chat_ui import add_message_to_history
-        add_message_to_history('user', user_input)
         
-        # Store query for processing and mark as processing
-        st.session_state.pending_query = user_input
-        st.session_state.processing = True
-        st.rerun()
+        # Get user input (positioned in right column below chat/welcome)
+        user_input = get_user_input()
+        
+        # Handle user input
+        if user_input:
+            # Add user message to history
+            from frontend.components.chat_ui import add_message_to_history
+            add_message_to_history('user', user_input)
+            
+            # Store query for processing and mark as processing
+            st.session_state.pending_query = user_input
+            st.session_state.processing = True
+            st.rerun()
     
     # Add clear chat button in sidebar
     with st.sidebar:
