@@ -83,7 +83,7 @@ pytest tests/test_llm_service.py -v
 
 ## 🌐 Live Demo
 
-**Deployed on Streamlit Cloud:** [Your Streamlit Cloud URL]
+**Deployed on Streamlit Cloud:** [https://growwfaq-chatbot.streamlit.app/]
 
 Try asking:
 - "What is the NAV of SBI Large Cap Fund?"
