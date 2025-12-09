@@ -6,6 +6,9 @@ Entry point for the application
 import streamlit as st
 import sys
 import os
+import csv
+import uuid
+import time
 from dotenv import load_dotenv
 
 # Load environment variables from .env (local) or Streamlit secrets (cloud)
@@ -20,6 +23,42 @@ except Exception:
 
 # Load from .env file (for local development)
 load_dotenv()
+
+# Trace logging configuration
+LOG_TRACES = os.getenv("LOG_TRACES", "false").lower() == "true"
+LOG_CSV_PATH = os.getenv("LOG_CSV_PATH", "logs/traces.csv")
+# Ensure directory exists if a directory is specified
+log_dir = os.path.dirname(LOG_CSV_PATH)
+if log_dir:
+    os.makedirs(log_dir, exist_ok=True)
+
+
+def log_trace_csv(trace_text: str, user_input: str, llm_response: str):
+    """
+    Append a trace row to CSV for eval/error analysis.
+
+    Columns:
+    - trace_id
+    - trace        (free-form info, e.g., timestamp/classification)
+    - user_input
+    - llm_response
+    """
+    if not LOG_TRACES:
+        return
+
+    row = {
+        "trace_id": str(uuid.uuid4()),
+        "trace": trace_text,
+        "user_input": user_input,
+        "llm_response": llm_response,
+    }
+
+    file_exists = os.path.exists(LOG_CSV_PATH)
+    with open(LOG_CSV_PATH, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=row.keys())
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -171,6 +210,7 @@ def process_query(query: str, llm_service, retrieval_system):
     scheme_name = preprocessed.get('scheme_name')
     precomputed_response = preprocessed.get('precomputed_response')
     logger.info(f"[QUERY PROCESSING] Classification: {classification}, Scheme: {scheme_name}, Has precomputed: {bool(precomputed_response)}")
+    trace_text = f"ts={int(time.time())};class={classification};scheme={scheme_name or 'none'}"
     
     # Step 2: Check for precomputed response (advice, jailbreak, non-MF, scheme not available)
     if precomputed_response:
@@ -256,6 +296,13 @@ def process_query(query: str, llm_service, retrieval_system):
     )
     logger.info(f"[QUERY PROCESSING] Query processing complete. Response ready with source_url={bool(formatted_response.get('source_url'))}")
 
+    # Log to CSV for evals
+    log_trace_csv(
+        trace_text=trace_text,
+        user_input=query,
+        llm_response=formatted_response.get("answer", "")
+    )
+
     return formatted_response
 
 
@@ -334,6 +381,12 @@ def main():
                 'bot',
                 error_response.get('answer', ''),
                 source_url=error_response.get('source_url')
+            )
+            # Log error trace
+            log_trace_csv(
+                trace_text=f"ERROR ts={int(time.time())}",
+                user_input=query,
+                llm_response=f"ERROR: {e}"
             )
         finally:
             # Clear processing flag
