@@ -12,6 +12,6 @@ jobs:
       - name: Ping Streamlit app
         run: |
           # Replace with your actual deployed URL
-          APP_URL="https://your-app-url.streamlit.app/"
+          APP_URL="https://growwfaq-chatbot.streamlit.app/"
           curl -sS "$APP_URL" || true
 
