@@ -9,6 +9,8 @@ import os
 import csv
 import uuid
 import time
+import json
+import io
 from dotenv import load_dotenv
 
 # Load environment variables from .env (local) or Streamlit secrets (cloud)
@@ -31,6 +33,52 @@ LOG_CSV_PATH = os.getenv("LOG_CSV_PATH", "logs/traces.csv")
 log_dir = os.path.dirname(LOG_CSV_PATH)
 if log_dir:
     os.makedirs(log_dir, exist_ok=True)
+
+# Google Drive configuration (optional)
+GDRIVE_JSON = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON", "")
+GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID", "")
+UPLOAD_TO_GDRIVE = os.getenv("UPLOAD_TO_GDRIVE", "false").lower() == "true"
+
+# Lazy imports for Google Drive client
+def _get_drive_service():
+    if not GDRIVE_JSON or not GDRIVE_FOLDER_ID:
+        return None
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+    except Exception:
+        return None
+    try:
+        creds_info = json.loads(GDRIVE_JSON)
+        creds = service_account.Credentials.from_service_account_info(
+            creds_info, scopes=["https://www.googleapis.com/auth/drive.file"]
+        )
+        drive_service = build("drive", "v3", credentials=creds)
+        return drive_service
+    except Exception:
+        return None
+
+
+def upload_log_to_gdrive(local_path: str, drive_filename: str):
+    """
+    Upload a local file to Google Drive (requires service account JSON and folder ID).
+    """
+    drive_service = _get_drive_service()
+    if not drive_service:
+        return False, "Drive service not configured or libraries missing"
+    if not os.path.exists(local_path):
+        return False, "Local log file not found"
+
+    try:
+        from googleapiclient.http import MediaIoBaseUpload
+        file_metadata = {"name": drive_filename, "parents": [GDRIVE_FOLDER_ID]}
+        media = MediaIoBaseUpload(open(local_path, "rb"), mimetype="text/csv")
+        drive_service.files().create(
+            body=file_metadata, media_body=media, fields="id"
+        ).execute()
+        return True, "Uploaded to Google Drive"
+    except Exception as e:
+        return False, str(e)
 
 
 def log_trace_csv(trace_text: str, user_input: str, llm_response: str):
@@ -59,6 +107,10 @@ def log_trace_csv(trace_text: str, user_input: str, llm_response: str):
         if not file_exists:
             writer.writeheader()
         writer.writerow(row)
+
+    # Optional: auto-upload to Google Drive if enabled
+    if UPLOAD_TO_GDRIVE:
+        upload_log_to_gdrive(LOG_CSV_PATH, "traces.csv")
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -445,6 +497,16 @@ def main():
             st.session_state.pending_query = user_input
             st.session_state.processing = True
             st.rerun()
+    
+    # Sidebar: manual upload of logs to Google Drive (when enabled)
+    with st.sidebar:
+        if LOG_TRACES and os.path.exists(LOG_CSV_PATH):
+            if st.button("Upload traces to Google Drive", type="primary"):
+                ok, msg = upload_log_to_gdrive(LOG_CSV_PATH, "traces.csv")
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
     
     # Add clear chat button in sidebar
     with st.sidebar:

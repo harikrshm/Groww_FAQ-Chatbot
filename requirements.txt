@@ -15,6 +15,10 @@ sentence-transformers>=3.0.0
 torch>=2.5.0
 pinecone>=5.0.0
 
+# Google Drive upload for logs (optional)
+google-api-python-client>=2.129.0
+google-auth>=2.34.0
+
 # LLM integration
 groq>=0.4.0
 
