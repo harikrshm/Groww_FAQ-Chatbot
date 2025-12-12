@@ -507,6 +507,31 @@ def main():
                     st.success(msg)
                 else:
                     st.error(msg)
+        if LOG_TRACES:
+            st.markdown("#### Logs & Drive")
+            st.caption(f"Upload enabled: {UPLOAD_TO_GDRIVE}, Path: {LOG_CSV_PATH}")
+            st.caption(f"Drive folder set: {bool(GDRIVE_FOLDER_ID)}")
+            if st.button("Test Drive upload (diagnose)"):
+                # Ensure there is a file to upload
+                if not os.path.exists(LOG_CSV_PATH):
+                    os.makedirs(os.path.dirname(LOG_CSV_PATH) or ".", exist_ok=True)
+                    sample_row = {
+                        "trace_id": str(uuid.uuid4()),
+                        "trace": "diagnostic",
+                        "user_input": "diagnostic user input",
+                        "llm_response": "diagnostic llm response",
+                    }
+                    file_exists = False
+                    with open(LOG_CSV_PATH, "a", newline="", encoding="utf-8") as f:
+                        writer = csv.DictWriter(f, fieldnames=sample_row.keys())
+                        if not file_exists:
+                            writer.writeheader()
+                        writer.writerow(sample_row)
+                ok, msg = upload_log_to_gdrive(LOG_CSV_PATH, "traces.csv")
+                if ok:
+                    st.success(f"Diagnostic upload success: {msg}")
+                else:
+                    st.error(f"Diagnostic upload failed: {msg}")
     
     # Add clear chat button in sidebar
     with st.sidebar:
