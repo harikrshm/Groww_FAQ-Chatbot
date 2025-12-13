@@ -41,44 +41,83 @@ UPLOAD_TO_GDRIVE = os.getenv("UPLOAD_TO_GDRIVE", "false").lower() == "true"
 
 # Lazy imports for Google Drive client
 def _get_drive_service():
-    if not GDRIVE_JSON or not GDRIVE_FOLDER_ID:
-        return None
+    """Get Google Drive service with detailed error reporting"""
+    # Check environment variables
+    if not GDRIVE_JSON:
+        return None, "GDRIVE_SERVICE_ACCOUNT_JSON environment variable is not set"
+    if not GDRIVE_FOLDER_ID:
+        return None, "GDRIVE_FOLDER_ID environment variable is not set"
+    
+    # Check library imports
     try:
         from google.oauth2 import service_account
         from googleapiclient.discovery import build
-    except Exception:
-        return None
+    except ImportError as e:
+        return None, f"Google libraries not installed. Install with: pip install google-api-python-client google-auth. Error: {str(e)}"
+    
+    # Parse JSON and create credentials
     try:
         creds_info = json.loads(GDRIVE_JSON)
+    except json.JSONDecodeError as e:
+        return None, f"Invalid JSON in GDRIVE_SERVICE_ACCOUNT_JSON: {str(e)}"
+    
+    try:
         creds = service_account.Credentials.from_service_account_info(
             creds_info, scopes=["https://www.googleapis.com/auth/drive.file"]
         )
         drive_service = build("drive", "v3", credentials=creds)
-        return drive_service
-    except Exception:
-        return None
+        return drive_service, None
+    except Exception as e:
+        return None, f"Error creating Drive service: {str(e)}"
 
 
 def upload_log_to_gdrive(local_path: str, drive_filename: str):
     """
     Upload a local file to Google Drive (requires service account JSON and folder ID).
+    Returns (success: bool, message: str) tuple with detailed error messages.
     """
-    drive_service = _get_drive_service()
-    if not drive_service:
-        return False, "Drive service not configured or libraries missing"
+    # Get drive service with error details
+    result = _get_drive_service()
+    if isinstance(result, tuple):
+        drive_service, error = result
+        if not drive_service:
+            return False, error or "Drive service not configured or libraries missing"
+    else:
+        # Backward compatibility
+        drive_service = result
+        if not drive_service:
+            return False, "Drive service not configured or libraries missing"
+    
+    # Check if file exists
     if not os.path.exists(local_path):
-        return False, "Local log file not found"
+        return False, f"Local log file not found: {local_path}"
+    
+    # Check file size
+    file_size = os.path.getsize(local_path)
+    if file_size == 0:
+        return False, f"Log file is empty: {local_path}"
 
     try:
         from googleapiclient.http import MediaIoBaseUpload
         file_metadata = {"name": drive_filename, "parents": [GDRIVE_FOLDER_ID]}
-        media = MediaIoBaseUpload(open(local_path, "rb"), mimetype="text/csv")
-        drive_service.files().create(
-            body=file_metadata, media_body=media, fields="id"
-        ).execute()
-        return True, "Uploaded to Google Drive"
+        
+        # Open file and create media upload
+        with open(local_path, "rb") as f:
+            media = MediaIoBaseUpload(f, mimetype="text/csv", resumable=True)
+            drive_service.files().create(
+                body=file_metadata, media_body=media, fields="id"
+            ).execute()
+        
+        return True, f"Successfully uploaded {drive_filename} ({file_size:,} bytes) to Google Drive"
     except Exception as e:
-        return False, str(e)
+        error_msg = str(e)
+        # Provide more helpful error messages
+        if "insufficient authentication scopes" in error_msg.lower():
+            return False, f"Authentication error: Service account needs 'drive.file' scope. Error: {error_msg}"
+        elif "not found" in error_msg.lower() or "404" in error_msg:
+            return False, f"Folder not found: Check if GDRIVE_FOLDER_ID ({GDRIVE_FOLDER_ID[:20]}...) is correct and service account has access. Error: {error_msg}"
+        else:
+            return False, f"Upload failed: {error_msg}"
 
 
 def log_trace_csv(trace_text: str, user_input: str, llm_response: str):
@@ -510,7 +549,50 @@ def main():
         if LOG_TRACES:
             st.markdown("#### Logs & Drive")
             st.caption(f"Upload enabled: {UPLOAD_TO_GDRIVE}, Path: {LOG_CSV_PATH}")
-            st.caption(f"Drive folder set: {bool(GDRIVE_FOLDER_ID)}")
+            
+            # Diagnostic information
+            with st.expander("🔍 Configuration Diagnostics", expanded=False):
+                # Check environment variables
+                st.write("**Environment Variables:**")
+                st.caption(f"GDRIVE_SERVICE_ACCOUNT_JSON: {'✓ Set' if GDRIVE_JSON else '✗ Not Set'}")
+                st.caption(f"GDRIVE_FOLDER_ID: {'✓ Set' if GDRIVE_FOLDER_ID else '✗ Not Set'}")
+                if GDRIVE_FOLDER_ID:
+                    st.caption(f"Folder ID: {GDRIVE_FOLDER_ID[:30]}...")
+                
+                # Check libraries
+                try:
+                    from google.oauth2 import service_account
+                    from googleapiclient.discovery import build
+                    st.write("**Libraries:**")
+                    st.caption("✓ Google libraries installed")
+                except ImportError:
+                    st.write("**Libraries:**")
+                    st.caption("✗ Google libraries missing - install with: pip install google-api-python-client google-auth")
+                
+                # Check file
+                st.write("**Log File:**")
+                if os.path.exists(LOG_CSV_PATH):
+                    file_size = os.path.getsize(LOG_CSV_PATH)
+                    st.caption(f"✓ File exists: {LOG_CSV_PATH}")
+                    st.caption(f"✓ Size: {file_size:,} bytes")
+                else:
+                    st.caption(f"✗ File not found: {LOG_CSV_PATH}")
+                
+                # Test drive service
+                if st.button("Test Drive Service", type="secondary"):
+                    result = _get_drive_service()
+                    if isinstance(result, tuple):
+                        service, error = result
+                        if service:
+                            st.success("✓ Drive service initialized successfully")
+                        else:
+                            st.error(f"✗ {error}")
+                    else:
+                        if result:
+                            st.success("✓ Drive service initialized successfully")
+                        else:
+                            st.error("✗ Drive service initialization failed")
+            
             if st.button("Test Drive upload (diagnose)"):
                 # Ensure there is a file to upload
                 if not os.path.exists(LOG_CSV_PATH):
@@ -527,6 +609,8 @@ def main():
                         if not file_exists:
                             writer.writeheader()
                         writer.writerow(sample_row)
+                    st.info(f"Created test file: {LOG_CSV_PATH}")
+                
                 ok, msg = upload_log_to_gdrive(LOG_CSV_PATH, "traces.csv")
                 if ok:
                     st.success(f"Diagnostic upload success: {msg}")
