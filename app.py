@@ -56,10 +56,23 @@ def _get_drive_service():
         return None, f"Google libraries not installed. Install with: pip install google-api-python-client google-auth. Error: {str(e)}"
     
     # Parse JSON and create credentials
+    json_to_parse = GDRIVE_JSON.strip()
+    
     try:
-        creds_info = json.loads(GDRIVE_JSON)
+        creds_info = json.loads(json_to_parse)
     except json.JSONDecodeError as e:
-        return None, f"Invalid JSON in GDRIVE_SERVICE_ACCOUNT_JSON: {str(e)}"
+        error_msg = str(e)
+        suggestion = ""
+        if "control character" in error_msg.lower():
+            suggestion = (
+                "\n\nTIP: Your JSON contains unescaped control characters (newlines/tabs). "
+                "For environment variables, the JSON must be a single-line string.\n"
+                "Solutions:\n"
+                "1. Run 'python fix_gdrive_json.py' to format your JSON correctly\n"
+                "2. Or manually: Copy your JSON file content and use json.dumps() to convert it to a single line\n"
+                "3. In .env file, ensure the entire JSON is on ONE line with escaped quotes"
+            )
+        return None, f"Invalid JSON in GDRIVE_SERVICE_ACCOUNT_JSON: {error_msg}{suggestion}"
     
     try:
         creds = service_account.Credentials.from_service_account_info(

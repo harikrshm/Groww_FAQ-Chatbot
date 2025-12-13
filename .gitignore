@@ -43,3 +43,12 @@ htmlcov/
 # Streamlit
 .streamlit/secrets.toml
 
+# Secret files and credentials (never commit these!)
+*secrets*.toml
+*secrets*.json
+env_line.txt
+*_fixed.toml
+fix_env*.py
+fix_json*.py
+fix_gdrive*.py
+
